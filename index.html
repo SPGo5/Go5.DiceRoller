@@ -1627,14 +1627,30 @@ function debugLog(msg) {
 }
 
 function checkOAuthReturn() {
+  // Step 1: check for OAuth token in URL hash
+  const hash = window.location.hash;
+  debugLog('[OAuth] checkOAuthReturn | hash=' + (hash ? hash.substring(0,80) : 'EMPTY'));
+
+  if (hash && hash.includes('access_token')) {
+    debugLog('[OAuth] token found in hash, parsing...');
+    const params = new URLSearchParams(hash.substring(1));
+    const token = params.get('access_token');
+    debugLog('[OAuth] token=' + (token ? token.substring(0,20)+'...' : 'NULL'));
+    if (token) {
+      history.replaceState({}, '', window.location.pathname);
+      validateWithToken(token);
+      return;
+    }
+  }
+
+  // Step 2: check for saved session
   try {
-    // Check for saved login in localStorage (max 30 days)
     const saved = localStorage.getItem('go_saved_user');
-    if (saved && !window.location.hash.includes('access_token')) {
+    if (saved) {
       const s = JSON.parse(saved);
       const age = Date.now() - (s.savedAt || 0);
       if (age < 30 * 24 * 3600 * 1000 && s.user && s.email) {
-        // Restore session immediately so user isn't logged out
+        debugLog('[OAuth] restoring saved session for ' + s.user);
         currentUser = s.user;
         currentUserName = s.name || s.user;
         currentFsSubscriber = !!s.fs;
@@ -1644,43 +1660,14 @@ function checkOAuthReturn() {
         isGuest = false;
         setHomeState();
         updateProfileCorner();
-        // Re-fetch from GAS in background to refresh name/portal/tier
-        gasJsonp('action=validateEmail&email=' + encodeURIComponent(s.email), function(data) {
-          if (data.valid) {
-            currentUserName = data.name || currentUser;
-            currentFsSubscriber = data.fsSubscriber === true;
-            currentHasPortal = data.hasPortal === true;
-            currentHasBara = data.hasBara === true;
-            currentTier = data.tier || 0;
-            // Update cache with fresh data
-            try {
-              localStorage.setItem('go_saved_user', JSON.stringify({
-                user: currentUser, name: currentUserName,
-                fs: currentFsSubscriber, portal: currentHasPortal,
-                hasBara: currentHasBara, tier: currentTier,
-                email: s.email, savedAt: Date.now()
-              }));
-            } catch(e) {}
-            setHomeState();
-            updateProfileCorner();
-          }
-        }, null);
         return;
       } else {
         localStorage.removeItem('go_saved_user');
       }
     }
-    const hash = window.location.hash;
-    debugLog('[OAuth] hash=' + (hash ? hash.substring(0,50)+'...' : 'EMPTY'));
-    if (!hash || !hash.includes('access_token')) { debugLog('[OAuth] no token in hash, returning'); return; }
-    const params = new URLSearchParams(hash.replace('#', ''));
-    const token = params.get('access_token');
-    debugLog('[OAuth] token found=' + !!token);
-    if (token) {
-      history.replaceState({}, '', window.location.pathname);
-      validateWithToken(token);
-    }
-  } catch(e) { debugLog('[OAuth] checkOAuthReturn error=' + e); }
+  } catch(e) { debugLog('[OAuth] saved session error=' + e); }
+
+  debugLog('[OAuth] no token, no saved session — showing login');
 }
 
 async function validateWithToken(token) {
