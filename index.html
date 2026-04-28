@@ -9,7 +9,7 @@
 
   <!-- oEmbed discovery -->
   <link rel="alternate" type="application/json+oembed"
-    href="https://dsiiiajisai.github.io/Go5/dice-oembed.json"
+    href="https://spgo5.github.io/Go5/dice-oembed.json"
     title="Dice Roller · Divination (i) Tsutsuji">
   <meta property="og:title" content="🎲 Dice Roller · Divination (i) Tsutsuji">
   <meta property="og:description" content="QMDJ Divine Wisdom Sourcing — Dice Roller">
@@ -1605,7 +1605,7 @@ function gasJsonp(params, onSuccess, onError, timeoutMs) {
   document.head.appendChild(script);
   script.src = url;
 }
-const GOOGLE_CLIENT_ID = '656273496716-j3hhabkjpk7e70uqppoqlrqpsammdjia.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = '427989206862-svhf1cote22nhdhkq68ff14446upp2m4.apps.googleusercontent.com';
 
 // On page load — check if returning from Google OAuth redirect
 // (runs after all functions are defined)
@@ -1738,7 +1738,7 @@ function showLoginError(msg) {
   if (el) { el.textContent = msg; el.style.display = 'block'; }
 }
 
-const PROFILE_PIC_BASE = 'https://raw.githubusercontent.com/dsiiiajisai/Go5/main/Profile%20Pix/';
+const PROFILE_PIC_BASE = 'https://raw.githubusercontent.com/SPGo5/Go5/main/Profile%20Pix/';
 
 function updateProfileCorner() {
   const corner = document.getElementById('profile-corner');
@@ -2453,7 +2453,7 @@ function copyDiceResultImage() {
   const dieType = diceSetup && diceSetup.type ? diceSetup.type : 6;
   const diceImgUrl = DIE_IMGS_MAP[dieType] || DIE_IMGS_MAP[6];
   const tsutsujiUrl = 'https://i.postimg.cc/Qd3Ts8C0/tsutsuji_2.png';
-  const profileUrl = currentUser ? ('https://raw.githubusercontent.com/dsiiiajisai/Go5/main/Profile%20Pix/' + encodeURIComponent(currentUser) + '-Profile-Pic-R.png') : null;
+  const profileUrl = currentUser ? ('https://raw.githubusercontent.com/SPGo5/Go5/main/Profile%20Pix/' + encodeURIComponent(currentUser) + '-Profile-Pic-R.png') : null;
   const descText = ((document.getElementById('dice-description') || {}).value || '').trim();
 
   // === 2x scale for sharpness, same width as screen ===
@@ -2867,7 +2867,7 @@ function kwCopyResultImage() {
   const guanyinUrl  = 'https://i.postimg.cc/cLc0dSD1/Kwan-Yin.png';
   const tsutsujiUrl = 'https://i.postimg.cc/Qd3Ts8C0/tsutsuji_2.png';
   const profileUrl  = currentUser
-    ? 'https://raw.githubusercontent.com/dsiiiajisai/Go5/main/Profile%20Pix/'
+    ? 'https://raw.githubusercontent.com/SPGo5/Go5/main/Profile%20Pix/'
       + encodeURIComponent(currentUser) + '-Profile-Pic-R.png'
     : null;
 
@@ -4114,7 +4114,7 @@ function showLoginError(msg) {
   if (el) { el.textContent = msg; el.style.display = 'block'; }
 }
 
-const PROFILE_PIC_BASE = 'https://raw.githubusercontent.com/dsiiiajisai/Go5/main/Profile%20Pix/';
+const PROFILE_PIC_BASE = 'https://raw.githubusercontent.com/SPGo5/Go5/main/Profile%20Pix/';
 
 function updateProfileCorner() {
   const corner = document.getElementById('profile-corner');
@@ -4508,7 +4508,7 @@ function copyDiceResultImage() {
   const dieType = diceSetup && diceSetup.type ? diceSetup.type : 6;
   const diceImgUrl = DIE_IMGS_MAP[dieType] || DIE_IMGS_MAP[6];
   const tsutsujiUrl = 'https://i.postimg.cc/Qd3Ts8C0/tsutsuji_2.png';
-  const profileUrl = currentUser ? ('https://raw.githubusercontent.com/dsiiiajisai/Go5/main/Profile%20Pix/' + encodeURIComponent(currentUser) + '-Profile-Pic-R.png') : null;
+  const profileUrl = currentUser ? ('https://raw.githubusercontent.com/SPGo5/Go5/main/Profile%20Pix/' + encodeURIComponent(currentUser) + '-Profile-Pic-R.png') : null;
   const descText = ((document.getElementById('dice-description') || {}).value || '').trim();
 
   // === 2x scale for sharpness, same width as screen ===
@@ -4922,7 +4922,7 @@ function kwCopyResultImage() {
   const guanyinUrl  = 'https://i.postimg.cc/cLc0dSD1/Kwan-Yin.png';
   const tsutsujiUrl = 'https://i.postimg.cc/Qd3Ts8C0/tsutsuji_2.png';
   const profileUrl  = currentUser
-    ? 'https://raw.githubusercontent.com/dsiiiajisai/Go5/main/Profile%20Pix/'
+    ? 'https://raw.githubusercontent.com/SPGo5/Go5/main/Profile%20Pix/'
       + encodeURIComponent(currentUser) + '-Profile-Pic-R.png'
     : null;
 
