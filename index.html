@@ -1744,7 +1744,11 @@ async function validateWithToken(token) {
 
 function startGoogleLogin() {
   // Build Google OAuth URL — implicit flow, returns access_token in hash
-  const redirectUri = window.location.origin + window.location.pathname;
+  // Use index.html explicitly to avoid GitHub Pages dropping the hash on redirect
+  let redirectUri = window.location.origin + window.location.pathname;
+  if (!redirectUri.endsWith('index.html')) {
+    redirectUri = redirectUri.replace(/\/?$/, '/index.html');
+  }
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
     redirect_uri: redirectUri,
