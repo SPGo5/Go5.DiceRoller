@@ -1456,6 +1456,7 @@ html, body {
     <span style="font-family:'Cinzel',serif;font-size:14px;color:white;">Sign in with Google</span>
   </div>
   <div id="login-error-dice" style="color:#ff8a80;font-size:13px;margin-top:16px;display:none;"></div>
+  <div id="debug-box" style="color:#ffff00;font-size:11px;margin-top:16px;padding:10px;background:rgba(0,0,0,0.5);border:1px solid #ffff00;border-radius:8px;max-width:320px;word-break:break-all;display:none;"></div>
   <div style="font-family:'Crimson Pro',serif;font-size:11px;font-style:italic;color:rgba(255,255,255,0.3);margin-top:48px;">Divination (i) Tsutsuji · SPGo</div>
 </div>
 
@@ -1609,6 +1610,14 @@ const GOOGLE_CLIENT_ID = '427989206862-svhf1cote22nhdhkq68ff14446upp2m4.apps.goo
 
 // On page load — check if returning from Google OAuth redirect
 // (runs after all functions are defined)
+function debugLog(msg) {
+  console.log(msg);
+  const box = document.getElementById('debug-box');
+  if (box) { box.style.display='block'; box.innerHTML += msg + '<br>'; }
+  // Also store in sessionStorage so it survives reload
+  try { sessionStorage.setItem('oauthDebug', (sessionStorage.getItem('oauthDebug')||'') + msg + '\n'); } catch(e){}
+}
+
 function checkOAuthReturn() {
   try {
     // Check for saved login in localStorage (max 30 days)
@@ -1654,16 +1663,16 @@ function checkOAuthReturn() {
       }
     }
     const hash = window.location.hash;
-    console.log('[OAuth] hash:', hash ? hash.substring(0,50)+'...' : 'EMPTY');
-    if (!hash || !hash.includes('access_token')) { console.log('[OAuth] no token in hash, returning'); return; }
+    debugLog('[OAuth] hash:', hash ? hash.substring(0,50)+'...' : 'EMPTY');
+    if (!hash || !hash.includes('access_token')) { debugLog('[OAuth] no token in hash, returning'); return; }
     const params = new URLSearchParams(hash.replace('#', ''));
     const token = params.get('access_token');
-    console.log('[OAuth] token found:', !!token);
+    debugLog('[OAuth] token found:', !!token);
     if (token) {
       history.replaceState({}, '', window.location.pathname);
       validateWithToken(token);
     }
-  } catch(e) { console.log('[OAuth] checkOAuthReturn error:', e); }
+  } catch(e) { debugLog('[OAuth] checkOAuthReturn error:', e); }
 }
 
 async function validateWithToken(token) {
@@ -1673,25 +1682,25 @@ async function validateWithToken(token) {
   if (verifyScreen) verifyScreen.classList.add('active');
 
   try {
-    console.log('[OAuth] fetching userinfo...');
+    debugLog('[OAuth] fetching userinfo...');
     const infoResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: 'Bearer ' + token }
     });
     const userInfo = await infoResp.json();
-    console.log('[OAuth] userInfo:', JSON.stringify(userInfo));
+    debugLog('[OAuth] userInfo:', JSON.stringify(userInfo));
     const email = userInfo.email;
 
     if (!email) {
-      console.log('[OAuth] no email returned');
+      debugLog('[OAuth] no email returned');
       goTo('screen-login-dice');
       showLoginError('Could not get your email from Google. Please try again.');
       return;
     }
 
-    console.log('[OAuth] email:', email, '— calling GAS...');
+    debugLog('[OAuth] email:', email, '— calling GAS...');
     // JSONP to avoid CORS with GAS
     gasJsonp('action=validateEmail&email=' + encodeURIComponent(email), function(data) {
-      console.log('[OAuth] GAS response:', JSON.stringify(data));
+      debugLog('[OAuth] GAS response:', JSON.stringify(data));
       if (data.valid) {
         currentUser = data.idCode || email;
         currentUserName = data.name || data.idCode || email;
@@ -1719,7 +1728,7 @@ async function validateWithToken(token) {
       showLoginError('Connection error. Check your internet and try again.');
     });
   } catch(e) {
-    console.log('[OAuth] validateWithToken error:', e);
+    debugLog('[OAuth] validateWithToken error:', e);
     goTo('screen-login-dice');
     showLoginError('Connection error. Check your internet and try again.');
   }
@@ -3972,6 +3981,15 @@ function vedicCopyData() {
 // INIT on DOM ready
 // ============================================================
 window.addEventListener('DOMContentLoaded', function() {
+  // Show any debug stored from before redirect
+  try {
+    const prev = sessionStorage.getItem('oauthDebug');
+    if (prev) {
+      const box = document.getElementById('debug-box');
+      if (box) { box.style.display='block'; box.innerHTML = '<b>Pre-redirect log:</b><br>' + prev.replace(/\n/g,'<br>'); }
+      sessionStorage.removeItem('oauthDebug');
+    }
+  } catch(e) {}
   hsLoadClients();
   // Init ruler period dropdown after PERIODS is defined
   const sel = document.getElementById('period-select-ruler');
