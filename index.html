@@ -1435,6 +1435,7 @@ html, body {
 }
   </style>
 </head>
+
 <body>
 
 <!-- Profile corner (same as main portal) -->
@@ -1456,7 +1457,6 @@ html, body {
     <span style="font-family:'Cinzel',serif;font-size:14px;color:white;">Sign in with Google</span>
   </div>
   <div id="login-error-dice" style="color:#ff8a80;font-size:13px;margin-top:16px;display:none;"></div>
-  <div id="debug-box" style="color:#ffff00;font-size:11px;margin-top:16px;padding:10px;background:rgba(0,0,0,0.5);border:1px solid #ffff00;border-radius:8px;max-width:320px;word-break:break-all;display:none;"></div>
   <div style="font-family:'Crimson Pro',serif;font-size:11px;font-style:italic;color:rgba(255,255,255,0.3);margin-top:48px;">Divination (i) Tsutsuji · SPGo</div>
 </div>
 
@@ -1583,114 +1583,88 @@ html, body {
 </div>
 
 <script>
-// ================================================================
-// 🎲 Dice Roller Standalone — Divination (i) Tsutsuji · SPGo
-// ================================================================
-
-// IMMEDIATE debug — runs before anything else
-(function() {
-  const h = window.location.hash;
-  const s = sessionStorage.getItem('oauthDebug') || '';
-  sessionStorage.setItem('oauthDebug', s + 'PAGE LOAD | hash=' + (h||'EMPTY') + ' | href=' + window.location.href.substring(0,80) + '\n');
-})();
-
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwnhEM3zfTLRof65C8KC3Nj4dtt8gACr0kwuzsWQHMls9VcY0aeP7Ba6F_Ntcecpf0QsQ/exec';
+const GOOGLE_CLIENT_ID = '427989206862-svhf1cote22nhdhkq68ff14446upp2m4.apps.googleusercontent.com';
 
+let currentUser = null;
+let currentUserName = 'Guest';
+let currentFsSubscriber = false;
+let currentHasPortal = false;
+let currentHasBara = false;
+let currentTier = 0;
+let isGuest = false;
+
+// ── Screen navigation ──
+function goTo(screenId) {
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.remove('active');
+    if (s.id === 'screen-verify-dice') s.style.display = 'none';
+  });
+  const el = document.getElementById(screenId);
+  if (el) { el.classList.add('active'); window.scrollTo(0, 0); }
+}
+function goBack() {}
+
+// ── Login error display ──
+function showLoginError(msg) {
+  const el = document.getElementById('login-error-dice');
+  if (el) { el.textContent = msg; el.style.display = 'block'; }
+  goTo('screen-login-dice');
+}
+
+// ── Verifying screen ──
+function showVerifying() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const v = document.getElementById('screen-verify-dice');
+  if (v) { v.style.display = 'flex'; v.classList.add('active'); }
+}
+
+// ── JSONP helper for GAS ──
 function gasJsonp(params, onSuccess, onError, timeoutMs) {
-  const cbName = 'gasCB_' + Date.now() + '_' + Math.floor(Math.random()*9999);
+  const cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random()*9999);
   const script = document.createElement('script');
-  const url = GAS_URL + '?' + params + '&callback=' + cbName;
-  const timer = setTimeout(() => {
+  const timeout = setTimeout(function() {
     cleanup();
     if (onError) onError('Timeout');
-  }, timeoutMs || 15000);
+  }, timeoutMs || 12000);
   function cleanup() {
-    clearTimeout(timer);
+    clearTimeout(timeout);
     delete window[cbName];
     if (script.parentNode) script.parentNode.removeChild(script);
   }
   window[cbName] = function(data) { cleanup(); onSuccess(data); };
   script.onerror = function() { cleanup(); if (onError) onError('Script load failed'); };
   document.head.appendChild(script);
-  script.src = url;
-}
-const GOOGLE_CLIENT_ID = '427989206862-svhf1cote22nhdhkq68ff14446upp2m4.apps.googleusercontent.com';
-
-// On page load — check if returning from Google OAuth redirect
-// (runs after all functions are defined)
-function debugLog(msg) {
-  console.log(msg);
-  const box = document.getElementById('debug-box');
-  if (box) { box.style.display='block'; box.innerHTML += msg + '<br>'; }
-  // Also store in sessionStorage so it survives reload
-  try { sessionStorage.setItem('oauthDebug', (sessionStorage.getItem('oauthDebug')||'') + msg + '\n'); } catch(e){}
+  script.src = GAS_URL + '?' + params + '&callback=' + cbName;
 }
 
-function checkOAuthReturn() {
-  // Step 1: check for OAuth token in URL hash
-  const hash = window.location.hash;
-  debugLog('[OAuth] checkOAuthReturn | hash=' + (hash ? hash.substring(0,80) : 'EMPTY'));
-
-  if (hash && hash.includes('access_token')) {
-    debugLog('[OAuth] token found in hash, parsing...');
-    const params = new URLSearchParams(hash.substring(1));
-    const token = params.get('access_token');
-    debugLog('[OAuth] token=' + (token ? token.substring(0,20)+'...' : 'NULL'));
-    if (token) {
-      history.replaceState({}, '', window.location.pathname);
-      validateWithToken(token);
-      return;
-    }
-  }
-
-  // Step 2: check for saved session
-  try {
-    const saved = localStorage.getItem('go_saved_user');
-    if (saved) {
-      const s = JSON.parse(saved);
-      const age = Date.now() - (s.savedAt || 0);
-      if (age < 30 * 24 * 3600 * 1000 && s.user && s.email) {
-        debugLog('[OAuth] restoring saved session for ' + s.user);
-        currentUser = s.user;
-        currentUserName = s.name || s.user;
-        currentFsSubscriber = !!s.fs;
-        currentHasPortal = !!s.portal;
-        currentHasBara = !!s.hasBara;
-        currentTier = s.tier || 0;
-        isGuest = false;
-        setHomeState();
-        updateProfileCorner();
-        return;
-      } else {
-        localStorage.removeItem('go_saved_user');
-      }
-    }
-  } catch(e) { debugLog('[OAuth] saved session error=' + e); }
-
-  debugLog('[OAuth] no token, no saved session — showing login');
+// ── Start Google login ──
+function startGoogleLogin() {
+  const el = document.getElementById('login-error-dice');
+  if (el) el.style.display = 'none';
+  let redirectUri = window.location.origin + '/Go5.DiceRoller/index.html';
+  const params = new URLSearchParams({
+    client_id: GOOGLE_CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'token',
+    scope: 'email profile',
+    prompt: 'select_account'
+  });
+  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
 }
 
+// ── After login: validate token with Google then GAS ──
 async function validateWithToken(token) {
+  showVerifying();
   try {
-    debugLog('[OAuth] fetching userinfo...');
-    const infoResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    const resp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: 'Bearer ' + token }
     });
-    const userInfo = await infoResp.json();
-    debugLog('[OAuth] userInfo=' + JSON.stringify(userInfo));
-    const email = userInfo.email;
+    const info = await resp.json();
+    const email = info.email;
+    if (!email) { showLoginError('Could not get your email. Please try again.'); return; }
 
-    if (!email) {
-      debugLog('[OAuth] no email returned');
-      goTo('screen-login-dice');
-      showLoginError('Could not get your email from Google. Please try again.');
-      return;
-    }
-
-    debugLog('[OAuth] email=' + email + ' calling GAS...');
-    // JSONP to avoid CORS with GAS
     gasJsonp('action=validateEmail&email=' + encodeURIComponent(email), function(data) {
-      debugLog('[OAuth] GAS response=' + JSON.stringify(data));
       if (data.valid) {
         currentUser = data.idCode || email;
         currentUserName = data.name || data.idCode || email;
@@ -1710,537 +1684,95 @@ async function validateWithToken(token) {
         setHomeState();
         updateProfileCorner();
       } else {
-        goTo('screen-login-dice');
-        showLoginError('Your account (' + email + ') is not registered. Please contact your administrator.');
+        showLoginError('Your account (' + email + ') is not registered.');
       }
     }, function() {
-      goTo('screen-login-dice');
-      showLoginError('Connection error. Check your internet and try again.');
+      showLoginError('Connection error. Please try again.');
     });
   } catch(e) {
-    debugLog('[OAuth] validateWithToken error=' + e);
-    goTo('screen-login-dice');
-    showLoginError('Connection error. Check your internet and try again.');
+    showLoginError('Connection error. Please try again.');
   }
 }
 
-function startGoogleLogin() {
-  // Build Google OAuth URL — implicit flow, returns access_token in hash
-  // Use index.html explicitly to avoid GitHub Pages dropping the hash on redirect
-  let redirectUri = window.location.origin + window.location.pathname;
-  if (!redirectUri.endsWith('index.html')) {
-    redirectUri = redirectUri.replace(/\/?$/, '/index.html');
+// ── Check for OAuth token on page load ──
+function checkOAuthReturn() {
+  // Check hash for OAuth token
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token')) {
+    const params = new URLSearchParams(hash.substring(1));
+    const token = params.get('access_token');
+    if (token) {
+      history.replaceState({}, '', window.location.pathname);
+      validateWithToken(token);
+      return;
+    }
   }
-  const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: redirectUri,
-    response_type: 'token',
-    scope: 'email profile',
-    prompt: 'select_account'
-  });
-  // Redirect to Google — user picks account, Google redirects back with token
-  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+  // Check saved session
+  try {
+    const saved = localStorage.getItem('go_saved_user');
+    if (saved) {
+      const s = JSON.parse(saved);
+      const age = Date.now() - (s.savedAt || 0);
+      if (age < 30 * 24 * 3600 * 1000 && s.user && s.email) {
+        currentUser = s.user;
+        currentUserName = s.name || s.user;
+        currentFsSubscriber = !!s.fs;
+        currentHasPortal = !!s.portal;
+        currentHasBara = !!s.hasBara;
+        currentTier = s.tier || 0;
+        isGuest = false;
+        setHomeState();
+        updateProfileCorner();
+        return;
+      } else {
+        localStorage.removeItem('go_saved_user');
+      }
+    }
+  } catch(e) {}
+  // No token, no session — stay on login screen
+  goTo('screen-login-dice');
 }
 
-function showLoginError(msg) {
-  const el = document.getElementById('login-error');
-  if (el) { el.textContent = msg; el.style.display = 'block'; }
+// ── Set home state (standalone: go to dice screen) ──
+function setHomeState() {
+  goTo('screen-B2-2-2-T1');
 }
 
+// ── Profile corner ──
 const PROFILE_PIC_BASE = 'https://raw.githubusercontent.com/SPGo5/Go5/main/Profile%20Pix/';
-
 function updateProfileCorner() {
   const corner = document.getElementById('profile-corner');
   const img = document.getElementById('profile-corner-img');
   const code = document.getElementById('profile-corner-code');
   if (!corner) return;
-  if (isGuest) {
-    // Show Guest with 🆓 emoji
-    corner.style.display = 'flex';
-    img.style.display = 'none';
-    code.innerHTML = 'Guest<br><span style="font-size:11px;">🆓</span>';
-    return;
-  }
   if (!currentUser) { corner.style.display = 'none'; return; }
   corner.style.display = 'flex';
-  const tierLabel = currentTier === 1 ? 'Tier 1 💎'
-                  : currentTier === 2 ? 'Tier 2'
-                  : currentTier === 3 ? 'Tier 3'
-                  : '';
-  code.innerHTML = currentUser + (tierLabel ? '<br><span style="font-size:8px;color:rgba(0,191,255,0.6);letter-spacing:0.05em;">' + tierLabel + '</span>' : '');
-  const picUrl = PROFILE_PIC_BASE + encodeURIComponent(currentUser) + '-Profile-Pic-R.png';
-  img.onerror = function() { img.src = ''; img.style.display = 'none'; };
-  img.onload = function() { img.style.display = 'block'; };
-  img.src = picUrl;
+  if (img) {
+    img.src = PROFILE_PIC_BASE + encodeURIComponent(currentUser) + '-Profile-Pic-R.png';
+    img.style.display = 'block';
+  }
+  if (code) code.textContent = currentUser;
+}
+
+// ── Logout ──
+function doLogout() {
+  try { localStorage.removeItem('go_saved_user'); } catch(e) {}
+  const popup = document.getElementById('logout-popup');
+  if (popup) popup.style.display = 'none';
+  currentUser = null; currentUserName = 'Guest';
+  currentFsSubscriber = false; currentHasPortal = false;
+  currentHasBara = false; currentTier = 0; isGuest = false;
+  goTo('screen-login-dice');
+  updateProfileCorner();
 }
 
 function toggleLogoutPopup() {
   const popup = document.getElementById('logout-popup');
   if (!popup) return;
-  const showing = popup.style.display === 'flex';
-  popup.style.display = showing ? 'none' : 'flex';
+  popup.style.display = popup.style.display === 'flex' ? 'none' : 'flex';
 }
 
-function doLogout() {
-  try { localStorage.removeItem('go_saved_user'); } catch(e) {}
-  document.getElementById('logout-popup').style.display = 'none';
-  document.getElementById('profile-corner').style.display = 'none';
-  currentUser = null; currentUserName = 'Guest';
-  currentFsSubscriber = false; currentHasPortal = false; isGuest = false;
-  goTo('screen-B0-login');
-}
-
-// Close popup when clicking elsewhere
-document.addEventListener('click', function(e) {
-  const popup = document.getElementById('logout-popup');
-  const corner = document.getElementById('profile-corner');
-  if (popup && popup.style.display === 'flex' && !popup.contains(e.target) && !corner.contains(e.target)) {
-    popup.style.display = 'none';
-  }
-});
-
-function showIdInput() {}
-function loginWithId() {}
-function handleGoogleLogin() {}
-function initGoogleAuth() {}
-
-function guestLogin() {
-  currentUser = null;
-  currentUserName = 'Guest';
-  currentFsSubscriber = false;
-  currentHasPortal = false;
-  isGuest = true;
-  try { localStorage.removeItem('go_saved_user'); } catch(e) {}
-  setHomeState();
-  updateProfileCorner();
-  goTo('screen-B0');
-}
-
-function getTimeGreeting() {
-  const h = new Date().getHours();
-  if (h >= 5 && h < 12) return 'Good morning';
-  if (h >= 12 && h < 17) return 'Good afternoon';
-  if (h >= 17 && h < 21) return 'Good evening';
-  return 'Good night';
-}
-
-function setHomeState() {
-  const b3 = document.getElementById('card-b3');
-  const b4 = document.getElementById('card-b4');
-  const b6 = document.getElementById('card-b6');
-
-  if (isGuest) {
-    b3.classList.add('grayed');
-    b4.classList.add('grayed');
-    b6.classList.add('grayed');
-    const _baraCard = document.getElementById('card-bara');
-    const _baraNote = document.getElementById('bara-sub-note');
-    if (_baraCard) { _baraCard.classList.add('grayed'); if (_baraNote) _baraNote.style.display = 'block'; }
-    document.getElementById('home-greeting').textContent = 'Welcome, Guest';
-  } else {
-    b3.classList.remove('grayed');
-    b4.classList.remove('grayed');
-    // Personal portal: column C = X (hasPortal)
-    if (currentHasPortal) {
-      b6.classList.remove('grayed');
-    } else {
-      b6.classList.add('grayed');
-    }
-    // Bara: column G = X (hasBara)
-    const baraCard = document.getElementById('card-bara');
-    const baraNote = document.getElementById('bara-sub-note');
-    if (baraCard) {
-      if (currentHasBara) {
-        baraCard.classList.remove('grayed');
-        if (baraNote) baraNote.style.display = 'none';
-        const baraNote2 = document.getElementById('bara-sub-note2');
-        if (baraNote2) baraNote2.style.display = 'none';
-      } else {
-        baraCard.classList.add('grayed');
-        if (baraNote) baraNote.style.display = 'block';
-        const baraNote2 = document.getElementById('bara-sub-note2');
-        if (baraNote2) baraNote2.style.display = 'block';
-      }
-    }
-    document.getElementById('home-greeting').textContent = getTimeGreeting() + ', ' + currentUserName;
-  }
-
-  // Gate fengshui tools
-  applyFsSubscriberGating();
-  // Gate tier-based features
-  applyTierGating();
-
-  // Visit counter (localStorage)
-  let visits = parseInt(localStorage.getItem('go_portal_visits') || '0') + 1;
-  localStorage.setItem('go_portal_visits', visits);
-  document.getElementById('visit-count').textContent = visits.toLocaleString() + ' visits';
-}
-
-function applyTierGating() {
-  // "See what Lot says" — grayed for Tier 3 and guests
-  const linkEl = document.getElementById('kw-lot-link');
-  const noteEl = document.getElementById('kw-tier-note');
-  const canSeeLink = !isGuest && (currentTier === 1 || currentTier === 2);
-  if (linkEl) {
-    linkEl.style.pointerEvents = canSeeLink ? 'auto' : 'none';
-    linkEl.style.opacity = canSeeLink ? '1' : '0.3';
-    linkEl.style.cursor = canSeeLink ? 'pointer' : 'default';
-  }
-  if (noteEl) noteEl.style.display = canSeeLink ? 'none' : 'block';
-}
-
-function applyFsSubscriberGating() {
-  // Cards inside B4 screen that require FS (ii) Shage subscription
-  const fsToolCards = document.querySelectorAll('.fs-tool-gated');
-  const fsNote = document.querySelectorAll('.fs-subscriber-note');
-  if (!isGuest && currentFsSubscriber) {
-    fsToolCards.forEach(el => el.classList.remove('grayed'));
-    fsNote.forEach(el => el.style.display = 'none');
-  } else {
-    fsToolCards.forEach(el => el.classList.add('grayed'));
-    fsNote.forEach(el => el.style.display = 'block');
-  }
-}
-
-function openPersonalPortal() {
-  if (!isGuest && currentUser) {
-    window.open('https://sites.google.com/view/fsvi' + currentUser.toLowerCase(), '_blank');
-  }
-}
-
-document.addEventListener('keydown', function(e) {
-  const inp = document.getElementById('idInput');
-  if (inp && inp.style.display === 'block' && e.key === 'Enter') loginWithId();
-});
-
-// ============================================================
-// FENGSHUI DATA
-// ============================================================
-const OCTANTS = [
-  {name:'North',     zh:'坎', dir:'N',  min:337.5, max:22.5},
-  {name:'Northeast', zh:'艮', dir:'NE', min:22.5,  max:67.5},
-  {name:'East',      zh:'震', dir:'E',  min:67.5,  max:112.5},
-  {name:'Southeast', zh:'巽', dir:'SE', min:112.5, max:157.5},
-  {name:'South',     zh:'離', dir:'S',  min:157.5, max:202.5},
-  {name:'Southwest', zh:'坤', dir:'SW', min:202.5, max:247.5},
-  {name:'West',      zh:'兌', dir:'W',  min:247.5, max:292.5},
-  {name:'Northwest', zh:'乾', dir:'NW', min:292.5, max:337.5},
-];
-
-const M24 = [
-  {n:'壬', code:'N1',  a:337.5, b:352.5},
-  {n:'子', code:'N2',  a:352.5, b:7.5},
-  {n:'癸', code:'N3',  a:7.5,   b:22.5},
-  {n:'丑', code:'NE1', a:22.5,  b:37.5},
-  {n:'艮', code:'NE2', a:37.5,  b:52.5},
-  {n:'寅', code:'NE3', a:52.5,  b:67.5},
-  {n:'甲', code:'E1',  a:67.5,  b:82.5},
-  {n:'卯', code:'E2',  a:82.5,  b:97.5},
-  {n:'乙', code:'E3',  a:97.5,  b:112.5},
-  {n:'辰', code:'SE1', a:112.5, b:127.5},
-  {n:'巽', code:'SE2', a:127.5, b:142.5},
-  {n:'巳', code:'SE3', a:142.5, b:157.5},
-  {n:'丙', code:'S1',  a:157.5, b:172.5},
-  {n:'午', code:'S2',  a:172.5, b:187.5},
-  {n:'丁', code:'S3',  a:187.5, b:202.5},
-  {n:'未', code:'SW1', a:202.5, b:217.5},
-  {n:'坤', code:'SW2', a:217.5, b:232.5},
-  {n:'申', code:'SW3', a:232.5, b:247.5},
-  {n:'庚', code:'W1',  a:247.5, b:262.5},
-  {n:'酉', code:'W2',  a:262.5, b:277.5},
-  {n:'辛', code:'W3',  a:277.5, b:292.5},
-  {n:'戌', code:'NW1', a:292.5, b:307.5},
-  {n:'乾', code:'NW2', a:307.5, b:322.5},
-  {n:'亥', code:'NW3', a:322.5, b:337.5},
-];
-
-// Periods: P9=2024-2043, P8=2004-2023, each 20 years back
-const PERIODS = [
-  {p:1, label:'Period 1 (1864–1883)'},
-  {p:2, label:'Period 2 (1884–1903)'},
-  {p:3, label:'Period 3 (1904–1923)'},
-  {p:4, label:'Period 4 (1924–1943)'},
-  {p:5, label:'Period 5 (1944–1963)'},
-  {p:6, label:'Period 6 (1964–1983)'},
-  {p:7, label:'Period 7 (1984–2003)'},
-  {p:8, label:'Period 8 (2004–2023)'},
-  {p:9, label:'Period 9 (2024–2043)'},
-];
-
-// GitHub base URL for chart images
-const CHART_IMG_BASE = 'https://raw.githubusercontent.com/dsiiiajisai/Go5/main/B4.4/';
-
-function norm(b) { b = b % 360; if (b < 0) b += 360; return b; }
-function inRange(b, a, bv) { if (a > bv) return b >= a || b < bv; return b >= a && b < bv; }
-function getOctant(b) { for (const o of OCTANTS) if (inRange(b, o.min, o.max)) return o; return OCTANTS[0]; }
-function getMtn(b) { for (const m of M24) if (inRange(b, m.a, m.b)) return m; return {n:'—', code:'—'}; }
-
-// NE3/E3/SE3/SW3/W3/NW3 share chart with their x2 counterpart
-function normalizeFacing(code) {
-  const shareMap = { NE3:'NE2', E3:'E2', SE3:'SE2', SW3:'SW2', W3:'W2', NW3:'NW2' };
-  return shareMap[code] || code;
-}
-
-// Format: [Period][Direction].[1 or 2]  — 1=North at top, 2=facing on top
-let fsNorthOnTop = true; // default: North at top
-
-function getChartUrl(period, facingCode) {
-  const fc = normalizeFacing(facingCode);
-  const suffix = fsNorthOnTop ? '1' : '2';
-  return CHART_IMG_BASE + period + fc + '.' + suffix + '.png';
-}
-
-// ============================================================
-// B4.4 FLYING STAR STANDALONE
-// ============================================================
-(function initFSDropdowns() {
-  const pSel = document.getElementById('fs-period-select');
-  if (!pSel) return;
-  PERIODS.forEach(p => {
-    const opt = document.createElement('option');
-    opt.value = p.p;
-    opt.textContent = p.label;
-    pSel.appendChild(opt);
-  });
-})();
-
-function fsToggleOrientation() {
-  fsNorthOnTop = !fsNorthOnTop;
-  const btn = document.getElementById('fs-orient-btn');
-  btn.textContent = fsNorthOnTop ? '🧭 North at top' : '🏠 Facing on top';
-  fsLookup();
-}
-
-
-
-
-
-// ============================================================
-// B4.3 MAP & HOUSE FACING RULER
-// ============================================================
-function initMap() {
-  if (mapInstance) return; // already initialized
-  mapInstance = L.map('leaflet-map', {
-    center: [13.7563, 100.5018], // Bangkok default
-    zoom: 17,
-    zoomControl: true,
-  });
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 20,
-  }).addTo(mapInstance);
-
-  // Set up draw canvas
-  drawCanvas = document.getElementById('map-draw-layer');
-  drawCtx = drawCanvas.getContext('2d');
-  resizeDrawCanvas();
-
-  mapInstance.on('moveend zoomend resize', resizeDrawCanvas);
-  mapInstance.on('move zoom', resizeDrawCanvas);
-
-  // Draw canvas events
-  drawCanvas.addEventListener('mousedown', onDrawStart);
-  drawCanvas.addEventListener('mousemove', onDrawMove);
-  drawCanvas.addEventListener('mouseup', onDrawEnd);
-  drawCanvas.addEventListener('touchstart', e => { e.preventDefault(); onDrawStart(e.touches[0]); }, {passive: false});
-  drawCanvas.addEventListener('touchmove', e => { e.preventDefault(); onDrawMove(e.touches[0]); }, {passive: false});
-  drawCanvas.addEventListener('touchend', e => { e.preventDefault(); onDrawEnd(e.touches[0] || e.changedTouches[0]); }, {passive: false});
-}
-
-function resizeDrawCanvas() {
-  if (!drawCanvas || !mapInstance) return;
-  const container = mapInstance.getContainer();
-  drawCanvas.width = container.offsetWidth;
-  drawCanvas.height = container.offsetHeight;
-  if (drawnLine) redrawLine();
-}
-
-function toggleDrawMode() {
-  drawMode = !drawMode;
-  const btn = document.getElementById('btn-draw-mode');
-  drawCanvas.style.display = drawMode ? 'block' : 'none';
-  if (drawMode) {
-    btn.classList.add('active');
-    document.getElementById('map-instr-text').textContent = 'Click and drag on the map to draw the facing direction arrow';
-    // Disable map drag while drawing
-    mapInstance.dragging.disable();
-    mapInstance.scrollWheelZoom.disable();
-  } else {
-    btn.classList.remove('active');
-    document.getElementById('map-instr-text').textContent = 'Draw mode off. Pan and zoom the map freely.';
-    mapInstance.dragging.enable();
-    mapInstance.scrollWheelZoom.enable();
-  }
-}
-
-function getCanvasPos(e) {
-  const rect = drawCanvas.getBoundingClientRect();
-  return {
-    x: (e.clientX - rect.left) * (drawCanvas.width / rect.width),
-    y: (e.clientY - rect.top) * (drawCanvas.height / rect.height),
-  };
-}
-
-function redrawLine(x1, y1, x2, y2, preview) {
-  if (!drawCtx) return;
-  drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-  if (x1 === undefined) return;
-  const dx = x2 - x1, dy = y2 - y1;
-  const len = Math.sqrt(dx*dx + dy*dy);
-  if (len < 2) return;
-  const angle = Math.atan2(dy, dx);
-  const headLen = Math.min(24, len * 0.25);
-  const color = preview ? 'rgba(255,80,80,0.7)' : 'rgba(255,80,80,0.95)';
-
-  drawCtx.save();
-  drawCtx.strokeStyle = color;
-  drawCtx.fillStyle = color;
-  drawCtx.lineWidth = 3;
-  drawCtx.lineCap = 'round';
-
-  drawCtx.beginPath();
-  drawCtx.moveTo(x1, y1);
-  drawCtx.lineTo(x2, y2);
-  drawCtx.stroke();
-
-  drawCtx.beginPath();
-  drawCtx.moveTo(x2, y2);
-  drawCtx.lineTo(x2 - headLen * Math.cos(angle - 0.4), y2 - headLen * Math.sin(angle - 0.4));
-  drawCtx.lineTo(x2 - headLen * Math.cos(angle + 0.4), y2 - headLen * Math.sin(angle + 0.4));
-  drawCtx.closePath();
-  drawCtx.fill();
-
-  if (len > 30) {
-    const b = calcCanvasBearing(x1, y1, x2, y2);
-    drawCtx.font = 'bold 14px Cinzel, serif';
-    drawCtx.fillStyle = 'rgba(255,255,255,0.95)';
-    drawCtx.strokeStyle = 'rgba(0,0,0,0.7)';
-    drawCtx.lineWidth = 3;
-    const tx = x2 + 18 * Math.cos(angle);
-    const ty = y2 + 18 * Math.sin(angle);
-    drawCtx.strokeText(b.toFixed(1) + '°', tx, ty);
-    drawCtx.fillText(b.toFixed(1) + '°', tx, ty);
-  }
-  drawCtx.restore();
-}
-
-function calcCanvasBearing(x1, y1, x2, y2) {
-  return norm(Math.atan2(x2 - x1, -(y2 - y1)) * 180 / Math.PI);
-}
-
-function showBearingResult() {
-  if (!drawnLine) return;
-  const b = calcCanvasBearing(drawnLine.x1, drawnLine.y1, drawnLine.x2, drawnLine.y2);
-  currentTrueBearing = b;
-  const oct = getOctant(b);
-  const mtn = getMtn(b);
-
-  document.getElementById('b-true').innerHTML = b.toFixed(1) + '<sup>°</sup>';
-  document.getElementById('b-dir').textContent = oct.dir + ' · ' + oct.zh;
-  document.getElementById('b-gua').textContent = oct.name;
-  document.getElementById('b-sector').textContent = mtn.code + ' · ' + mtn.n;
-  document.getElementById('bearing-result').classList.add('active');
-
-  // Store map center for magnetic calc
-  if (mapInstance) {
-    currentMapLatLng = mapInstance.getCenter();
-  }
-
-  document.getElementById('map-instr-text').textContent =
-    'Arrow: ' + b.toFixed(1) + '° · ' + mtn.code + ' · ' + oct.name + ' — clear and redraw to remeasure';
-}
-
-function clearArrow() {
-  drawnLine = null;
-  selectedNode = null;
-  currentTrueBearing = null;
-  if (drawCtx) drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
-  document.getElementById('bearing-result').classList.remove('active');
-  document.getElementById('magnetic-section').classList.remove('active');
-  document.getElementById('map-instr-text').textContent = 'Arrow cleared. Draw a new arrow.';
-}
-
-function copyBearingResult() {
-  if (!currentTrueBearing) return;
-  const b = currentTrueBearing.toFixed(1);
-  const oct = getOctant(currentTrueBearing);
-  const mtn = getMtn(currentTrueBearing);
-  const text = `House Facing (True North): ${b}° — ${mtn.code} · ${oct.name} (${oct.zh})`;
-  navigator.clipboard.writeText(text).then(() => {
-    const el = document.getElementById('bear-copy-confirm');
-    el.classList.add('show');
-    setTimeout(() => el.classList.remove('show'), 2000);
-  });
-}
-
-function toggleMagneticSection() {
-  const sec = document.getElementById('magnetic-section');
-  sec.classList.toggle('active');
-  if (sec.classList.contains('active')) {
-    // Populate period grid
-    const grid = document.getElementById('period-grid-ruler');
-    grid.innerHTML = '';
-    PERIODS.forEach(p => {
-      const btn = document.createElement('button');
-      btn.className = 'period-btn';
-      btn.textContent = 'P' + p.p + ' (' + p.label.match(/\((.+)\)/)[1] + ')';
-      btn.onclick = () => selectPeriodForRuler(p.p, btn);
-      grid.appendChild(btn);
-    });
-  }
-}
-
-function selectPeriodForRuler(period, btn) {
-  currentPeriodForRuler = period;
-  document.querySelectorAll('#period-grid-ruler .period-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  loadRulerChart();
-}
-
-
-
-
-
-// Magnetic bearing calculation
-function toRad(d) { return d * Math.PI / 180; }
-function toDeg(r) { return r * 180 / Math.PI; }
-function bearing(lat1, lng1, lat2, lng2) {
-  const p1 = toRad(lat1), p2 = toRad(lat2), dl = toRad(lng2 - lng1);
-  const x = Math.sin(dl) * Math.cos(p2);
-  const y = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
-  return norm(toDeg(Math.atan2(x, y)));
-}
-
-
-
-// Map address search using Nominatim
-async function searchAddress() {
-  const query = document.getElementById('map-search-input').value.trim();
-  if (!query) return;
-  if (!mapInstance) initMap();
-  try {
-    const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`, {
-      headers: { 'Accept-Language': 'en' }
-    });
-    const data = await resp.json();
-    if (data && data.length > 0) {
-      const lat = parseFloat(data[0].lat);
-      const lon = parseFloat(data[0].lon);
-      mapInstance.setView([lat, lon], 18);
-      currentMapLatLng = { lat, lng: lon };
-      document.getElementById('map-instr-text').textContent = 'Map loaded · Click "Draw Arrow" then drag on the map to draw the facing direction';
-    } else {
-      document.getElementById('map-instr-text').textContent = 'Address not found — try different keywords';
-    }
-  } catch (e) {
-    document.getElementById('map-instr-text').textContent = 'Search error — check your connection';
-  }
-}
-
-// ============================================================
-// B2.1 DICE ROLLER — globals, utilities, and all dice functions
-// ============================================================
-let diceSetup = {};
+// ── Dice functionality ──
 let diceReps = [];
 let selectedDieType = 6;
 let selectedDiceSrc = 'quantum';
@@ -3176,7 +2708,7 @@ function applyHaircutAdvice(el, text) {
 // ============================================================
 // NAVIGATION HISTORY + BROWSER BACK + SWIPE
 // ============================================================
-const navStack = ['screen-B0-login'];
+const navStack = ['screen-login-dice'];
 
 function goTo(screenId) {
   const current = navStack[navStack.length - 1];
@@ -3234,7 +2766,7 @@ function goTo(screenId) {
     const btn = document.getElementById('hs-gen-btn');
     if (btn) { btn.disabled = false; btn.textContent = 'Generate'; }
   }
-  if (screenId === 'screen-B0-login') {
+  if (screenId === 'screen-login-dice') {
     // Clear saved login so user can switch accounts
     try { localStorage.removeItem('go_saved_user'); } catch(e) {}
     currentUser = null; currentUserName = 'Guest'; isGuest = false;
@@ -3293,7 +2825,11 @@ document.addEventListener('touchend', e => {
   }
 }, { passive: true });
 
-// Push initial state removed — not needed in standalone DiceRoller
+// Push initial state so back button works from the start
+// BUT only if NOT returning from Google OAuth (which puts access_token in the hash)
+if (!window.location.hash.includes('access_token')) {
+  // history.replaceState removed — not needed in standalone
+}
 
 // ============================================================
 // MAP ARROW NODE EDITING
@@ -3971,15 +3507,7 @@ function vedicCopyData() {
 // INIT on DOM ready
 // ============================================================
 window.addEventListener('DOMContentLoaded', function() {
-  // Show any debug stored from before redirect
-  try {
-    const prev = sessionStorage.getItem('oauthDebug');
-    if (prev) {
-      const box = document.getElementById('debug-box');
-      if (box) { box.style.display='block'; box.innerHTML = '<b>Pre-redirect log:</b><br>' + prev.replace(/\n/g,'<br>'); }
-      sessionStorage.removeItem('oauthDebug');
-    }
-  } catch(e) {}
+  checkOAuthReturn();
   hsLoadClients();
   // Init ruler period dropdown after PERIODS is defined
   const sel = document.getElementById('period-select-ruler');
@@ -3994,104 +3522,7 @@ window.addEventListener('DOMContentLoaded', function() {
 });
 
 
-
-// ── Standalone overrides — clean self-contained ──
-
-function goTo(screenId) {
-  document.querySelectorAll('.screen').forEach(s => {
-    s.classList.remove('active');
-    if (s.id === 'screen-verify-dice') s.style.display = 'none';
-  });
-  const el = document.getElementById(screenId);
-  if (el) { el.classList.add('active'); window.scrollTo(0,0); }
-}
-
-function goBack() {}
-
-function setHomeState() {
-  goTo('screen-B2-2-2-T1');
-  updateProfileCorner();
-}
-
-function showLoginError(msg) {
-  const el = document.getElementById('login-error-dice');
-  if (el) { el.textContent = msg; el.style.display = 'block'; }
-  goTo('screen-login-dice');
-}
-
-function showVerifying() {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  const v = document.getElementById('screen-verify-dice');
-  if (v) { v.style.display = 'flex'; v.classList.add('active'); }
-}
-
-function doLogout() {
-  try { localStorage.removeItem('go_saved_user'); } catch(e) {}
-  const popup = document.getElementById('logout-popup');
-  if (popup) popup.style.display = 'none';
-  const corner = document.getElementById('profile-corner');
-  if (corner) corner.style.display = 'none';
-  window.currentUser = null; window.isGuest = false;
-  window.currentTier = 0;
-  goTo('screen-login-dice');
-}
-
-// Self-contained validateWithToken for standalone
-async function validateWithToken(token) {
-  showVerifying();
-  try {
-    debugLog('[OAuth] fetching userinfo...');
-    const infoResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { Authorization: 'Bearer ' + token }
-    });
-    const userInfo = await infoResp.json();
-    debugLog('[OAuth] userInfo=' + JSON.stringify(userInfo));
-    const email = userInfo.email;
-    if (!email) {
-      showLoginError('Could not get your email from Google. Please try again.');
-      return;
-    }
-    debugLog('[OAuth] email=' + email + ' calling GAS...');
-    gasJsonp('action=validateEmail&email=' + encodeURIComponent(email), function(data) {
-      debugLog('[OAuth] GAS response=' + JSON.stringify(data));
-      if (data.valid) {
-        currentUser = data.idCode || email;
-        currentUserName = data.name || data.idCode || email;
-        currentFsSubscriber = data.fsSubscriber === true;
-        currentHasPortal = data.hasPortal === true;
-        currentHasBara = data.hasBara === true;
-        currentTier = data.tier || 0;
-        isGuest = false;
-        try {
-          localStorage.setItem('go_saved_user', JSON.stringify({
-            user: currentUser, name: currentUserName,
-            fs: currentFsSubscriber, portal: currentHasPortal,
-            hasBara: currentHasBara, tier: currentTier,
-            email: email, savedAt: Date.now()
-          }));
-        } catch(e) {}
-        setHomeState();
-        updateProfileCorner();
-      } else {
-        showLoginError('Your account (' + email + ') is not registered.');
-      }
-    }, function() {
-      showLoginError('Connection error. Check your internet and try again.');
-    });
-  } catch(e) {
-    debugLog('[OAuth] error=' + e);
-    showLoginError('Connection error. Please try again.');
-  }
-}
-
-// Init
-if (document.readyState === 'loading') {
-  window.addEventListener('DOMContentLoaded', checkOAuthReturn);
-} else {
-  checkOAuthReturn();
-}
-
-// Close logout popup on outside click
+// ── Init ──
 document.addEventListener('click', function(e) {
   const popup = document.getElementById('logout-popup');
   const corner = document.getElementById('profile-corner');
@@ -4099,6 +3530,12 @@ document.addEventListener('click', function(e) {
     popup.style.display = 'none';
   }
 });
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', checkOAuthReturn);
+} else {
+  checkOAuthReturn();
+}
 
 </script>
 </body>
