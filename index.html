@@ -1671,11 +1671,6 @@ function checkOAuthReturn() {
 }
 
 async function validateWithToken(token) {
-  // Show full-screen verifying state
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  const verifyScreen = document.getElementById('screen-B0-verify');
-  if (verifyScreen) verifyScreen.classList.add('active');
-
   try {
     debugLog('[OAuth] fetching userinfo...');
     const infoResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
@@ -4000,41 +3995,36 @@ window.addEventListener('DOMContentLoaded', function() {
 
 
 
-// ── Standalone-specific overrides (injected) ──
+// ── Standalone overrides — clean self-contained ──
+
 function goTo(screenId) {
-  // In standalone, only one screen exists — no-op for most navigations
-  // But handle login/home transition
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.screen').forEach(s => {
+    s.classList.remove('active');
+    if (s.id === 'screen-verify-dice') s.style.display = 'none';
+  });
   const el = document.getElementById(screenId);
   if (el) { el.classList.add('active'); window.scrollTo(0,0); }
 }
+
 function goBack() {}
 
-
-// ── Standalone-specific overrides ──
-
-// Override setHomeState to just show dice screen
 function setHomeState() {
   goTo('screen-B2-2-2-T1');
   updateProfileCorner();
 }
 
-// Override showLoginError for standalone
 function showLoginError(msg) {
   const el = document.getElementById('login-error-dice');
   if (el) { el.textContent = msg; el.style.display = 'block'; }
   goTo('screen-login-dice');
 }
 
-// Override verifying screen for standalone
 function showVerifying() {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   const v = document.getElementById('screen-verify-dice');
   if (v) { v.style.display = 'flex'; v.classList.add('active'); }
 }
 
-// Override doLogout for standalone
-const _doLogout = doLogout;
 function doLogout() {
   try { localStorage.removeItem('go_saved_user'); } catch(e) {}
   const popup = document.getElementById('logout-popup');
@@ -4046,21 +4036,59 @@ function doLogout() {
   goTo('screen-login-dice');
 }
 
-// Patch validateWithToken to show verifying screen
-const _origValidate = validateWithToken;
+// Self-contained validateWithToken for standalone
 async function validateWithToken(token) {
   showVerifying();
-  await _origValidate(token);
+  try {
+    debugLog('[OAuth] fetching userinfo...');
+    const infoResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const userInfo = await infoResp.json();
+    debugLog('[OAuth] userInfo=' + JSON.stringify(userInfo));
+    const email = userInfo.email;
+    if (!email) {
+      showLoginError('Could not get your email from Google. Please try again.');
+      return;
+    }
+    debugLog('[OAuth] email=' + email + ' calling GAS...');
+    gasJsonp('action=validateEmail&email=' + encodeURIComponent(email), function(data) {
+      debugLog('[OAuth] GAS response=' + JSON.stringify(data));
+      if (data.valid) {
+        currentUser = data.idCode || email;
+        currentUserName = data.name || data.idCode || email;
+        currentFsSubscriber = data.fsSubscriber === true;
+        currentHasPortal = data.hasPortal === true;
+        currentHasBara = data.hasBara === true;
+        currentTier = data.tier || 0;
+        isGuest = false;
+        try {
+          localStorage.setItem('go_saved_user', JSON.stringify({
+            user: currentUser, name: currentUserName,
+            fs: currentFsSubscriber, portal: currentHasPortal,
+            hasBara: currentHasBara, tier: currentTier,
+            email: email, savedAt: Date.now()
+          }));
+        } catch(e) {}
+        setHomeState();
+        updateProfileCorner();
+      } else {
+        showLoginError('Your account (' + email + ') is not registered.');
+      }
+    }, function() {
+      showLoginError('Connection error. Check your internet and try again.');
+    });
+  } catch(e) {
+    debugLog('[OAuth] error=' + e);
+    showLoginError('Connection error. Please try again.');
+  }
 }
 
-// Init — use DOMContentLoaded or run immediately if already ready
-function initStandalone() {
-  checkOAuthReturn();
-}
+// Init
 if (document.readyState === 'loading') {
-  window.addEventListener('DOMContentLoaded', initStandalone);
+  window.addEventListener('DOMContentLoaded', checkOAuthReturn);
 } else {
-  initStandalone();
+  checkOAuthReturn();
 }
 
 // Close logout popup on outside click
