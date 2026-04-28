@@ -1598,10 +1598,14 @@ let isGuest = false;
 function goTo(screenId) {
   document.querySelectorAll('.screen').forEach(s => {
     s.classList.remove('active');
-    if (s.id === 'screen-verify-dice') s.style.display = 'none';
+    s.style.display = 'none';
   });
   const el = document.getElementById(screenId);
-  if (el) { el.classList.add('active'); window.scrollTo(0, 0); }
+  if (el) {
+    el.style.display = 'flex';
+    el.classList.add('active');
+    window.scrollTo(0, 0);
+  }
 }
 function goBack() {}
 
