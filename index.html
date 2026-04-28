@@ -1986,6 +1986,7 @@ function getChartUrl(period, facingCode) {
 // ============================================================
 (function initFSDropdowns() {
   const pSel = document.getElementById('fs-period-select');
+  if (!pSel) return;
   PERIODS.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.p;
