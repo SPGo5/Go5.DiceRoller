@@ -1448,7 +1448,7 @@ html, body {
 </div>
 
 <!-- LOGIN SCREEN -->
-<div id="screen-login-dice" class="screen active">
+<div id="screen-login-dice" class="screen" style="display:none;">
   <img src="https://i.postimg.cc/2Sw1KPTF/2_d6.png" alt="Dice" style="width:90px;height:90px;object-fit:contain;filter:drop-shadow(0 0 14px rgba(0,191,255,0.5));margin-bottom:20px;">
   <div style="font-family:'Aleo',serif;font-size:22px;color:var(--sky,#00BFFF);letter-spacing:0.08em;margin-bottom:6px;">Dice Roller</div>
   <div style="font-family:'Cinzel',serif;font-size:13px;color:#e0b0ff;letter-spacing:0.2em;margin-bottom:40px;">Divination (i) Tsutsuji</div>
@@ -1467,7 +1467,7 @@ html, body {
 </div>
 
 <!-- DICE ROLLER SCREEN -->
-<div id="screen-B2-2-2-T1" class="screen">
+<div id="screen-B2-2-2-T1" class="screen" style="display:none;">
 <!-- SETUP SECTION -->
   <div id="dice-setup-section" class="dice-setup">
 
@@ -1733,7 +1733,7 @@ function checkOAuthReturn() {
       }
     }
   } catch(e) {}
-  // No token, no session — stay on login screen
+  // No token, no session — show login
   goTo('screen-login-dice');
 }
 
@@ -2712,21 +2712,11 @@ function applyHaircutAdvice(el, text) {
 // ============================================================
 // NAVIGATION HISTORY + BROWSER BACK + SWIPE
 // ============================================================
-const navStack = ['screen-login-dice'];
+// navStack and duplicate goTo removed — handled by standalone goTo above
 
-function goTo(screenId) {
-  const current = navStack[navStack.length - 1];
-  if (current !== screenId) navStack.push(screenId);
-
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  const target = document.getElementById(screenId);
-  if (target) {
-    target.classList.add('active');
-    window.scrollTo(0, 0);
-  }
-
-  // Push browser history state
-  history.pushState({ screenId }, '', '#' + screenId);
+function _goTo_unused(screenId) {
+  // replaced by standalone version
+  void(screenId);
 
   if (screenId === 'screen-B2-4-T1') initMap();
   if (screenId === 'screen-B2-1-T5-splash') {
