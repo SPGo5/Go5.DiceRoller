@@ -1627,7 +1627,6 @@ function checkOAuthReturn() {
         isGuest = false;
         setHomeState();
         updateProfileCorner();
-        goTo('screen-B0');
         // Re-fetch from GAS in background to refresh name/portal/tier
         gasJsonp('action=validateEmail&email=' + encodeURIComponent(s.email), function(data) {
           if (data.valid) {
@@ -1679,7 +1678,7 @@ async function validateWithToken(token) {
     const email = userInfo.email;
 
     if (!email) {
-      goTo('screen-B0-login');
+      goTo('screen-login-dice');
       showLoginError('Could not get your email from Google. Please try again.');
       return;
     }
@@ -1704,17 +1703,16 @@ async function validateWithToken(token) {
         } catch(e) {}
         setHomeState();
         updateProfileCorner();
-        goTo('screen-B0');
       } else {
-        goTo('screen-B0-login');
+        goTo('screen-login-dice');
         showLoginError('Your account (' + email + ') is not registered. Please contact your administrator.');
       }
     }, function() {
-      goTo('screen-B0-login');
+      goTo('screen-login-dice');
       showLoginError('Connection error. Check your internet and try again.');
     });
   } catch(e) {
-    goTo('screen-B0-login');
+    goTo('screen-login-dice');
     showLoginError('Connection error. Check your internet and try again.');
   }
 }
