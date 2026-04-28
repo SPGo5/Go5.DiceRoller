@@ -1820,6 +1820,13 @@ function setHomeState() {
   const b4 = document.getElementById('card-b4');
   const b6 = document.getElementById('card-b6');
 
+  // Standalone page — these elements don't exist, skip safely
+  if (!b3 || !b4 || !b6) {
+    try { applyFsSubscriberGating(); } catch(e) {}
+    try { applyTierGating(); } catch(e) {}
+    return;
+  }
+
   if (isGuest) {
     b3.classList.add('grayed');
     b4.classList.add('grayed');
@@ -1827,7 +1834,7 @@ function setHomeState() {
     const _baraCard = document.getElementById('card-bara');
     const _baraNote = document.getElementById('bara-sub-note');
     if (_baraCard) { _baraCard.classList.add('grayed'); if (_baraNote) _baraNote.style.display = 'block'; }
-    document.getElementById('home-greeting').textContent = 'Welcome, Guest';
+    const hg1 = document.getElementById('home-greeting'); if (hg1) hg1.textContent = 'Welcome, Guest';
   } else {
     b3.classList.remove('grayed');
     b4.classList.remove('grayed');
@@ -1853,7 +1860,7 @@ function setHomeState() {
         if (baraNote2) baraNote2.style.display = 'block';
       }
     }
-    document.getElementById('home-greeting').textContent = getTimeGreeting() + ', ' + currentUserName;
+    const hg2 = document.getElementById('home-greeting'); if (hg2) hg2.textContent = getTimeGreeting() + ', ' + currentUserName;
   }
 
   // Gate fengshui tools
@@ -1864,7 +1871,7 @@ function setHomeState() {
   // Visit counter (localStorage)
   let visits = parseInt(localStorage.getItem('go_portal_visits') || '0') + 1;
   localStorage.setItem('go_portal_visits', visits);
-  document.getElementById('visit-count').textContent = visits.toLocaleString() + ' visits';
+  const vc = document.getElementById('visit-count'); if (vc) vc.textContent = visits.toLocaleString() + ' visits';
 }
 
 function applyTierGating() {
@@ -4197,6 +4204,13 @@ function setHomeState() {
   const b4 = document.getElementById('card-b4');
   const b6 = document.getElementById('card-b6');
 
+  // Standalone page — these elements don't exist, skip safely
+  if (!b3 || !b4 || !b6) {
+    try { applyFsSubscriberGating(); } catch(e) {}
+    try { applyTierGating(); } catch(e) {}
+    return;
+  }
+
   if (isGuest) {
     b3.classList.add('grayed');
     b4.classList.add('grayed');
@@ -4204,7 +4218,7 @@ function setHomeState() {
     const _baraCard = document.getElementById('card-bara');
     const _baraNote = document.getElementById('bara-sub-note');
     if (_baraCard) { _baraCard.classList.add('grayed'); if (_baraNote) _baraNote.style.display = 'block'; }
-    document.getElementById('home-greeting').textContent = 'Welcome, Guest';
+    const hg1 = document.getElementById('home-greeting'); if (hg1) hg1.textContent = 'Welcome, Guest';
   } else {
     b3.classList.remove('grayed');
     b4.classList.remove('grayed');
@@ -4230,7 +4244,7 @@ function setHomeState() {
         if (baraNote2) baraNote2.style.display = 'block';
       }
     }
-    document.getElementById('home-greeting').textContent = getTimeGreeting() + ', ' + currentUserName;
+    const hg2 = document.getElementById('home-greeting'); if (hg2) hg2.textContent = getTimeGreeting() + ', ' + currentUserName;
   }
 
   // Gate fengshui tools
@@ -4241,7 +4255,7 @@ function setHomeState() {
   // Visit counter (localStorage)
   let visits = parseInt(localStorage.getItem('go_portal_visits') || '0') + 1;
   localStorage.setItem('go_portal_visits', visits);
-  document.getElementById('visit-count').textContent = visits.toLocaleString() + ' visits';
+  const vc = document.getElementById('visit-count'); if (vc) vc.textContent = visits.toLocaleString() + ' visits';
 }
 
 function updateProfileCorner() {
