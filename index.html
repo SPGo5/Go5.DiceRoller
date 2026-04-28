@@ -1671,16 +1671,16 @@ function checkOAuthReturn() {
       }
     }
     const hash = window.location.hash;
-    debugLog('[OAuth] hash:', hash ? hash.substring(0,50)+'...' : 'EMPTY');
+    debugLog('[OAuth] hash=' + (hash ? hash.substring(0,50)+'...' : 'EMPTY'));
     if (!hash || !hash.includes('access_token')) { debugLog('[OAuth] no token in hash, returning'); return; }
     const params = new URLSearchParams(hash.replace('#', ''));
     const token = params.get('access_token');
-    debugLog('[OAuth] token found:', !!token);
+    debugLog('[OAuth] token found=' + !!token);
     if (token) {
       history.replaceState({}, '', window.location.pathname);
       validateWithToken(token);
     }
-  } catch(e) { debugLog('[OAuth] checkOAuthReturn error:', e); }
+  } catch(e) { debugLog('[OAuth] checkOAuthReturn error=' + e); }
 }
 
 async function validateWithToken(token) {
@@ -1695,7 +1695,7 @@ async function validateWithToken(token) {
       headers: { Authorization: 'Bearer ' + token }
     });
     const userInfo = await infoResp.json();
-    debugLog('[OAuth] userInfo:', JSON.stringify(userInfo));
+    debugLog('[OAuth] userInfo=' + JSON.stringify(userInfo));
     const email = userInfo.email;
 
     if (!email) {
@@ -1705,10 +1705,10 @@ async function validateWithToken(token) {
       return;
     }
 
-    debugLog('[OAuth] email:', email, '— calling GAS...');
+    debugLog('[OAuth] email=' + email + ' calling GAS...');
     // JSONP to avoid CORS with GAS
     gasJsonp('action=validateEmail&email=' + encodeURIComponent(email), function(data) {
-      debugLog('[OAuth] GAS response:', JSON.stringify(data));
+      debugLog('[OAuth] GAS response=' + JSON.stringify(data));
       if (data.valid) {
         currentUser = data.idCode || email;
         currentUserName = data.name || data.idCode || email;
@@ -1736,7 +1736,7 @@ async function validateWithToken(token) {
       showLoginError('Connection error. Check your internet and try again.');
     });
   } catch(e) {
-    debugLog('[OAuth] validateWithToken error:', e);
+    debugLog('[OAuth] validateWithToken error=' + e);
     goTo('screen-login-dice');
     showLoginError('Connection error. Check your internet and try again.');
   }
