@@ -4055,10 +4055,15 @@ async function validateWithToken(token) {
   await _origValidate(token);
 }
 
-// Init
-window.addEventListener('DOMContentLoaded', function() {
+// Init — use DOMContentLoaded or run immediately if already ready
+function initStandalone() {
   checkOAuthReturn();
-});
+}
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', initStandalone);
+} else {
+  initStandalone();
+}
 
 // Close logout popup on outside click
 document.addEventListener('click', function(e) {
