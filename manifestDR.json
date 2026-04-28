@@ -1,0 +1,20 @@
+{
+  "name": "五 Go — Dice Roller",
+  "short_name": "Dice Roller",
+  "start_url": ".",
+  "display": "browser",
+  "background_color": "#04042A",
+  "theme_color": "#04042A",
+  "icons": [
+    {
+      "src": "https://i.postimg.cc/h47Dc2Vg/Dice-Roller-logo-glow-green.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.postimg.cc/h47Dc2Vg/Dice-Roller-logo-glow-green.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
