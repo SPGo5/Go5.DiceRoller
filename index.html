@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="https://i.postimg.cc/h47Dc2Vg/Dice-Roller-logo-glow-green.png">
+  <link rel="apple-touch-icon" href="https://i.postimg.cc/h47Dc2Vg/Dice-Roller-logo-glow-green.png">
   <title>🎲 Dice Roller · Divination (i) Tsutsuji</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Beau+Rivage&family=Klee+One&family=Corinthia&family=Aleo:wght@300;400;700&display=swap" rel="stylesheet">
@@ -141,6 +144,10 @@ html, body {
   animation: fadeIn 0.35s ease;
 }
 .screen.active { display: flex; }
+@keyframes verifyPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(0.95); }
+}
 
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
@@ -1462,8 +1469,8 @@ html, body {
 
 <!-- VERIFYING SCREEN -->
 <div id="screen-verify-dice" class="screen" style="background:linear-gradient(180deg,#000073,#00004a);min-height:100dvh;display:none;flex-direction:column;align-items:center;justify-content:center;">
-  <img src="https://i.postimg.cc/2Sw1KPTF/2_d6.png" class="sp-loading-img" style="width:72px;height:72px;object-fit:contain;margin-bottom:20px;">
-  <div class="sp-loading">Loading…</div>
+  <img src="https://i.postimg.cc/h47Dc2Vg/Dice-Roller-logo-glow-green.png" style="width:120px;height:120px;object-fit:contain;filter:drop-shadow(0 0 24px rgba(0,255,128,0.6));margin-bottom:28px;animation:verifyPulse 2s ease-in-out infinite;">
+  <div id="verify-dots" style="font-family:'Courier New',monospace;font-size:18px;color:rgba(0,255,128,0.9);letter-spacing:0.3em;">Loading</div>
 </div>
 
 <!-- DICE ROLLER SCREEN -->
@@ -1618,9 +1625,7 @@ function showLoginError(msg) {
 
 // ── Verifying screen ──
 function showVerifying() {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  const v = document.getElementById('screen-verify-dice');
-  if (v) { v.style.display = 'flex'; v.classList.add('active'); }
+  goTo('screen-verify-dice');
 }
 
 // ── JSONP helper for GAS ──
@@ -3500,20 +3505,7 @@ function vedicCopyData() {
 // ============================================================
 // INIT on DOM ready
 // ============================================================
-window.addEventListener('DOMContentLoaded', function() {
-  checkOAuthReturn();
-  hsLoadClients();
-  // Init ruler period dropdown after PERIODS is defined
-  const sel = document.getElementById('period-select-ruler');
-  if (sel && sel.options.length <= 1) {
-    PERIODS.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.p;
-      opt.textContent = p.label;
-      sel.appendChild(opt);
-    });
-  }
-});
+// DOMContentLoaded handled below in Init section
 
 
 // ── Init ──
@@ -3524,6 +3516,16 @@ document.addEventListener('click', function(e) {
     popup.style.display = 'none';
   }
 });
+
+// Animate loading dots
+(function() {
+  const states = ['Loading', 'Loading.', 'Loading..', 'Loading...'];
+  let i = 0;
+  setInterval(function() {
+    const el = document.getElementById('verify-dots');
+    if (el) { i = (i+1) % states.length; el.textContent = states[i]; }
+  }, 500);
+})();
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', checkOAuthReturn);
