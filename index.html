@@ -1586,6 +1586,14 @@ html, body {
 // ================================================================
 // 🎲 Dice Roller Standalone — Divination (i) Tsutsuji · SPGo
 // ================================================================
+
+// IMMEDIATE debug — runs before anything else
+(function() {
+  const h = window.location.hash;
+  const s = sessionStorage.getItem('oauthDebug') || '';
+  sessionStorage.setItem('oauthDebug', s + 'PAGE LOAD | hash=' + (h||'EMPTY') + ' | href=' + window.location.href.substring(0,80) + '\n');
+})();
+
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbwnhEM3zfTLRof65C8KC3Nj4dtt8gACr0kwuzsWQHMls9VcY0aeP7Ba6F_Ntcecpf0QsQ/exec';
 
 function gasJsonp(params, onSuccess, onError, timeoutMs) {
