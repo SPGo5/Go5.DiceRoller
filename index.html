@@ -3311,11 +3311,7 @@ document.addEventListener('touchend', e => {
   }
 }, { passive: true });
 
-// Push initial state so back button works from the start
-// BUT only if NOT returning from Google OAuth (which puts access_token in the hash)
-if (!window.location.hash.includes('access_token')) {
-  history.replaceState({ screenId: 'screen-B0-login' }, '', '#screen-B0-login');
-}
+// Push initial state removed — not needed in standalone DiceRoller
 
 // ============================================================
 // MAP ARROW NODE EDITING
