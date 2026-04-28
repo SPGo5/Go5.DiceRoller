@@ -1654,14 +1654,16 @@ function checkOAuthReturn() {
       }
     }
     const hash = window.location.hash;
-    if (!hash || !hash.includes('access_token')) return;
+    console.log('[OAuth] hash:', hash ? hash.substring(0,50)+'...' : 'EMPTY');
+    if (!hash || !hash.includes('access_token')) { console.log('[OAuth] no token in hash, returning'); return; }
     const params = new URLSearchParams(hash.replace('#', ''));
     const token = params.get('access_token');
+    console.log('[OAuth] token found:', !!token);
     if (token) {
       history.replaceState({}, '', window.location.pathname);
       validateWithToken(token);
     }
-  } catch(e) {}
+  } catch(e) { console.log('[OAuth] checkOAuthReturn error:', e); }
 }
 
 async function validateWithToken(token) {
@@ -1671,20 +1673,25 @@ async function validateWithToken(token) {
   if (verifyScreen) verifyScreen.classList.add('active');
 
   try {
+    console.log('[OAuth] fetching userinfo...');
     const infoResp = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: 'Bearer ' + token }
     });
     const userInfo = await infoResp.json();
+    console.log('[OAuth] userInfo:', JSON.stringify(userInfo));
     const email = userInfo.email;
 
     if (!email) {
+      console.log('[OAuth] no email returned');
       goTo('screen-login-dice');
       showLoginError('Could not get your email from Google. Please try again.');
       return;
     }
 
+    console.log('[OAuth] email:', email, '— calling GAS...');
     // JSONP to avoid CORS with GAS
     gasJsonp('action=validateEmail&email=' + encodeURIComponent(email), function(data) {
+      console.log('[OAuth] GAS response:', JSON.stringify(data));
       if (data.valid) {
         currentUser = data.idCode || email;
         currentUserName = data.name || data.idCode || email;
@@ -1712,6 +1719,7 @@ async function validateWithToken(token) {
       showLoginError('Connection error. Check your internet and try again.');
     });
   } catch(e) {
+    console.log('[OAuth] validateWithToken error:', e);
     goTo('screen-login-dice');
     showLoginError('Connection error. Check your internet and try again.');
   }
